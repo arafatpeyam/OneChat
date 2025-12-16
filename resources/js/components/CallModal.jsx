@@ -295,12 +295,25 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                 let processedCandidateIds = new Set(); // Track processed ICE candidates
                 
                 sdpPollingIntervalRef.current = setInterval(async () => {
+                    // Don't poll if call is null (modal closing)
+                    if (!call || !webrtcServiceRef.current) {
+                        if (sdpPollingIntervalRef.current) {
+                            clearInterval(sdpPollingIntervalRef.current);
+                            sdpPollingIntervalRef.current = null;
+                        }
+                        return;
+                    }
+                    
                     try {
-                        const response = await axios.get('/api/calls/active');
+                        const response = await axios.get('/api/calls/active', {
+                            timeout: 3000, // 3 second timeout to prevent hanging
+                        });
                         if (response.data.success && response.data.call) {
                             // Poll for ICE candidates
                             try {
-                                const iceResponse = await axios.get(`/api/calls/${call.id}/ice-candidates`);
+                                const iceResponse = await axios.get(`/api/calls/${call.id}/ice-candidates`, {
+                                    timeout: 2000, // 2 second timeout
+                                });
                                 if (iceResponse.data.success && iceResponse.data.candidates) {
                                     for (const item of iceResponse.data.candidates) {
                                         const candidateId = `${item.candidate.candidate}-${item.candidate.sdpMLineIndex}`;
@@ -313,7 +326,9 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                                 }
                             } catch (iceError) {
                                 // Ignore ICE candidate errors, continue polling
-                                console.log('No ICE candidates yet or error:', iceError);
+                                if (iceError.code !== 'ECONNABORTED') {
+                                    console.log('No ICE candidates yet or error:', iceError);
+                                }
                             }
                         }
                         
@@ -407,9 +422,12 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                             }
                         }
                     } catch (error) {
-                        console.error('Error polling for answer:', error);
+                        // Don't spam console with timeout errors
+                        if (error.code !== 'ECONNABORTED') {
+                            console.error('Error polling for answer:', error);
+                        }
                     }
-                }, 500); // Poll faster for local system
+                }, 1000); // Poll every 1 second (reduced from 500ms to prevent overload)
             }
         } catch (error) {
             console.error('Error starting call:', error);
@@ -442,12 +460,21 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                         let processedCandidateIds = new Set();
                         
                         const pollForOffer = async () => {
+                            // Don't poll if call is null (modal closing)
+                            if (!call || !webrtcServiceRef.current) {
+                                return;
+                            }
+                            
                             try {
-                                const activeResponse = await axios.get('/api/calls/active');
+                                const activeResponse = await axios.get('/api/calls/active', {
+                                    timeout: 3000, // 3 second timeout
+                                });
                                 if (activeResponse.data.success && activeResponse.data.call) {
                                     // Poll for ICE candidates
                                     try {
-                                        const iceResponse = await axios.get(`/api/calls/${call.id}/ice-candidates`);
+                                        const iceResponse = await axios.get(`/api/calls/${call.id}/ice-candidates`, {
+                                            timeout: 2000, // 2 second timeout
+                                        });
                                         if (iceResponse.data.success && iceResponse.data.candidates) {
                                             for (const item of iceResponse.data.candidates) {
                                                 const candidateId = `${item.candidate.candidate}-${item.candidate.sdpMLineIndex}`;
@@ -460,7 +487,9 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                                         }
                                     } catch (iceError) {
                                         // Ignore ICE candidate errors, continue polling
-                                        console.log('No ICE candidates yet or error:', iceError);
+                                        if (iceError.code !== 'ECONNABORTED') {
+                                            console.log('No ICE candidates yet or error:', iceError);
+                                        }
                                     }
                                     
                                     // Process offer if not already processed
@@ -501,7 +530,7 @@ export default function CallModal({ call, currentUser, onEndCall, onAcceptCall, 
                         
                         // Start polling for offer
                         if (!sdpPollingIntervalRef.current) {
-                            sdpPollingIntervalRef.current = setInterval(pollForOffer, 500); // Poll faster for local system
+                            sdpPollingIntervalRef.current = setInterval(pollForOffer, 1000); // Poll every 1 second (reduced from 500ms to prevent overload)
                             // Also try immediately
                             pollForOffer();
                         }

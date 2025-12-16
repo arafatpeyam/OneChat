@@ -31,6 +31,14 @@ class CallController extends Controller
             ], 400);
         }
 
+        // Check if users are friends
+        if (!$caller->isFriendWith($receiver->id)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You can only call your friends. Please send a friend request first.',
+            ], 403);
+        }
+
         // Create call record
         $call = Call::create([
             'caller_id' => $caller->id,

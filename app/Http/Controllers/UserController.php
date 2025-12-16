@@ -12,7 +12,7 @@ class UserController extends Controller
     public function users(){
         $currentUserId = Auth::id();
         
-        $users = User::select('id', 'name', 'email', 'created_at')
+        $users = User::select('id', 'name', 'email', 'created_at', 'last_seen_at')
             ->where('id', '!=', $currentUserId)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -22,6 +22,8 @@ class UserController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'joined' => $user->created_at->format('Y-m-d'),
+                    'last_seen_at' => $user->last_seen_at?->toISOString(),
+                    'is_online' => $user->isOnline(),
                 ];
             });
 

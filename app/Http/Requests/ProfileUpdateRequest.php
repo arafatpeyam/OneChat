@@ -29,14 +29,25 @@ class ProfileUpdateRequest extends FormRequest
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'address' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
-            'city' => ['nullable', 'string', 'max:100'],
+            'city' => [
+                Rule::requiredIf($this->input('donor') === 'yes'),
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'state' => ['nullable', 'string', 'max:100'],
             'zip' => ['nullable', 'string', 'max:20'],
             'birth_date' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'in:male,female,other'],
             'occupation' => ['nullable', 'string', 'max:255'],
             'hobbies' => ['nullable', 'string', 'max:500'],
-            'blood_group' => ['nullable', 'string', 'in:A+,A-,B+,B-,AB+,AB-,O+,O-'],
+            'blood_group' => [
+                Rule::requiredIf($this->input('donor') === 'yes'),
+                'nullable',
+                'string',
+                'in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+            ],
+            'donor' => ['required', 'string', 'in:yes,no'],
         ];
     }
 }

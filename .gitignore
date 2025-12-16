@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Allow database.sqlite to be included in transfers
+# Uncomment the line below if you want to exclude it from git
+# database/database.sqlite

@@ -1,0 +1,3 @@
+# This file ensures the database directory is tracked by git
+# The database.sqlite file should be included when transferring the project
+

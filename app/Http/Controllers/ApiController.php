@@ -9,7 +9,7 @@ class ApiController extends Controller
     public function index()
     {
         return response()->json([
-            'message' => 'Welcome to One Chat API',
+            'message' => 'Welcome to OneChat API',
             'version' => '1.0.0'
         ]);
     }

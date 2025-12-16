@@ -37,8 +37,9 @@ class ProfileController extends Controller
         Log::info('Profile update request', [
             'name' => $request->input('name'),
             'email' => $request->input('email'),
+            'donor' => $request->input('donor'),
             'has_image' => $request->hasFile('image'),
-            'all_input' => $request->all(),
+            'all_input' => $request->except(['_method', '_token']),
         ]);
         
         $validated = $request->validated();
@@ -93,7 +94,14 @@ class ProfileController extends Controller
 
         $user->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        // Refresh the user model to get the updated image path
+        $user->refresh();
+
+        // Return redirect with success message
+        // The HandleInertiaRequests middleware will automatically include the updated user in the response
+        return Redirect::route('profile.edit')
+            ->with('status', 'profile-updated')
+            ->with('success', 'Profile updated successfully');
     }
 
     /**

@@ -23,7 +23,7 @@ function App() {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            Welcome to One Chat
+            Welcome to OneChat
           </h1>
           <p className="text-gray-600 mb-6">
             Laravel + React + Tailwind CSS is ready!

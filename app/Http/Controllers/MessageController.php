@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
+use App\Models\FriendRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,15 +17,37 @@ class MessageController extends Controller
                 'message' => 'required|string|max:1000',
             ]);
 
-            $senderId = Auth::id();
+            // Optimized: Get user once and cache it
+            $sender = Auth::user();
             
-            if (!$senderId) {
+            if (!$sender) {
                 return response()->json([
                     'success' => false,
                     'error' => 'User not authenticated',
                 ], 401);
             }
+            
+            $senderId = $sender->id;
 
+            // Optimized: Fast friend check using direct query instead of method call
+            $isFriend = FriendRequest::where(function($query) use ($senderId, $request) {
+                $query->where('sender_id', $senderId)
+                      ->where('receiver_id', $request->receiver_id)
+                      ->where('status', 'accepted');
+            })->orWhere(function($query) use ($senderId, $request) {
+                $query->where('sender_id', $request->receiver_id)
+                      ->where('receiver_id', $senderId)
+                      ->where('status', 'accepted');
+            })->exists();
+
+            if (!$isFriend) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'You can only send messages to your friends. Please send a friend request first.',
+                ], 403);
+            }
+
+            // Optimized: Create message directly without extra queries
             $message = Message::create([
                 'sender_id' => $senderId,
                 'receiver_id' => $request->receiver_id,
@@ -32,6 +55,7 @@ class MessageController extends Controller
                 'read' => false,
             ]);
 
+            // Return immediately with message data
             return response()->json([
                 'success' => true,
                 'message' => [
@@ -48,16 +72,42 @@ class MessageController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Message send error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::id(),
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to send message',
+                'error' => 'Failed to send message: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     public function getMessages(Request $request, $userId)
     {
-        $currentUserId = Auth::id();
+        $currentUser = Auth::user();
+        
+        if (!$currentUser) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not authenticated',
+                'messages' => [],
+            ], 401);
+        }
+        
+        $currentUserId = $currentUser->id;
+
+        // Check if users are friends
+        if (!$currentUser->isFriendWith($userId)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You can only view messages with your friends.',
+                'messages' => [],
+            ], 403);
+        }
 
         $messages = Message::where(function ($query) use ($currentUserId, $userId) {
             $query->where('sender_id', $currentUserId)

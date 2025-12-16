@@ -40,7 +40,10 @@
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
+            "@php artisan db:create",
+            "@php artisan db:import",
             "@php artisan migrate --force",
+            "@php artisan db:seed --class=AdminSeeder",
             "npm install",
             "npm run build"
         ],

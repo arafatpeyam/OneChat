@@ -32,7 +32,8 @@ class WebRTCService {
                 // For localhost, empty config might work for direct connection
                 // But we'll use STUN as fallback
             ],
-            iceCandidatePoolSize: 10, // Pre-gather candidates for faster connection
+            iceCandidatePoolSize: 0, // Don't pre-gather, gather on demand for faster initial connection
+            iceTransportPolicy: 'all', // Allow both relay and direct connections
         };
     }
 
@@ -135,22 +136,30 @@ class WebRTCService {
                 console.log('Audio tracks received:', audioTracks.length);
                 
                 if (audioTracks.length > 0) {
+                    // Set srcObject first
                     this.remoteAudio.srcObject = event.streams[0];
+                    // Set volume and attributes before playing
+                    this.remoteAudio.volume = 1.0;
+                    this.remoteAudio.autoplay = true;
+                    this.remoteAudio.playsInline = true;
+                    
                     // Ensure audio plays with multiple attempts
                     const playAudio = async () => {
                         try {
+                            // Load the media first
+                            this.remoteAudio.load();
                             await this.remoteAudio.play();
                             console.log('Remote audio playing successfully');
-                            // Increase volume to ensure it's audible
-                            this.remoteAudio.volume = 1.0;
                         } catch (err) {
                             console.error('Error playing remote audio:', err);
-                            // Try again after user interaction
+                            // Try again immediately (browser might need user interaction)
                             setTimeout(() => {
-                                this.remoteAudio.play().catch(e => {
-                                    console.error('Retry play failed:', e);
-                                });
-                            }, 1000);
+                                if (this.remoteAudio && this.remoteAudio.srcObject) {
+                                    this.remoteAudio.play().catch(e => {
+                                        console.error('Retry play failed:', e);
+                                    });
+                                }
+                            }, 100);
                         }
                     };
                     playAudio();
@@ -163,6 +172,8 @@ class WebRTCService {
                 
                 if (videoTracks.length > 0) {
                     this.remoteVideo.srcObject = event.streams[0];
+                    this.remoteVideo.autoplay = true;
+                    this.remoteVideo.playsInline = true;
                     this.remoteVideo.play().catch(err => {
                         console.error('Error playing remote video:', err);
                     });
@@ -219,21 +230,69 @@ class WebRTCService {
         this.isCaller = true;
         this.callType = callType;
         
+        // Initialize local stream first
         await this.initializeLocalStream(callType);
+        
+        // Create peer connection
         this.createPeerConnection();
+
+        // Wait a bit for peer connection to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Create offer with proper configuration
         const offerOptions = {
             offerToReceiveAudio: true,
             offerToReceiveVideo: callType === 'video',
+            iceRestart: false, // Don't restart ICE, use existing candidates
         };
         
         const offer = await this.peerConnection.createOffer(offerOptions);
         await this.peerConnection.setLocalDescription(offer);
         console.log('Offer created and local description set');
         console.log('Signaling state after setting local offer:', this.peerConnection.signalingState);
+        
+        // Wait for ICE gathering to complete (with timeout)
+        await this.waitForIceGathering(5000); // 5 second timeout
 
         return offer;
+    }
+    
+    /**
+     * Wait for ICE gathering to complete
+     */
+    async waitForIceGathering(timeout = 5000) {
+        return new Promise((resolve) => {
+            if (this.peerConnection.iceGatheringState === 'complete') {
+                resolve();
+                return;
+            }
+            
+            const checkInterval = setInterval(() => {
+                if (this.peerConnection.iceGatheringState === 'complete') {
+                    clearInterval(checkInterval);
+                    clearTimeout(timeoutId);
+                    resolve();
+                }
+            }, 100);
+            
+            const timeoutId = setTimeout(() => {
+                clearInterval(checkInterval);
+                console.warn('ICE gathering timeout, proceeding anyway');
+                resolve(); // Resolve anyway to not block
+            }, timeout);
+            
+            // Also listen for the event
+            const onIceGatheringStateChange = () => {
+                if (this.peerConnection.iceGatheringState === 'complete') {
+                    clearInterval(checkInterval);
+                    clearTimeout(timeoutId);
+                    this.peerConnection.removeEventListener('icegatheringstatechange', onIceGatheringStateChange);
+                    resolve();
+                }
+            };
+            
+            this.peerConnection.addEventListener('icegatheringstatechange', onIceGatheringStateChange);
+        });
     }
 
     /**

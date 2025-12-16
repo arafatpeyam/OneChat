@@ -8,6 +8,79 @@ import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { useRef, useState, useEffect } from 'react';
 
+const CITY_OPTIONS = [
+    'Bagerhat',
+    'Bandarban',
+    'Barisal',
+    'Barguna',
+    'Bhola',
+    'Bogra',
+    'Brahmanbaria',
+    'Chandpur',
+    'Chapai Nawabganj',
+    'Chittagong',
+    'Chuadanga',
+    'Comilla',
+    "Cox's Bazar",
+    'Dhaka',
+    'Dinajpur',
+    'Faridpur',
+    'Feni',
+    'Gaibandha',
+    'Gazipur',
+    'Gopalganj',
+    'Habiganj',
+    'Jamalpur',
+    'Jashore',
+    'Jessore',
+    'Jhalokati',
+    'Jhenaidah',
+    'Joypurhat',
+    'Khagrachhari',
+    'Khulna',
+    'Kishoreganj',
+    'Kurigram',
+    'Kushtia',
+    'Lakshmipur',
+    'Lalmonirhat',
+    'Madaripur',
+    'Magura',
+    'Manikganj',
+    'Meherpur',
+    'Moulvibazar',
+    'Munshiganj',
+    'Mymensingh',
+    'Naogaon',
+    'Narail',
+    'Narayanganj',
+    'Narsingdi',
+    'Natore',
+    'Netrokona',
+    'Nilphamari',
+    'Noakhali',
+    'Pabna',
+    'Panchagarh',
+    'Patuakhali',
+    'Pirojpur',
+    'Rajshahi',
+    'Rangamati',
+    'Rangpur',
+    'Saidpur',
+    'Satkhira',
+    'Shariatpur',
+    'Sherpur',
+    'Sirajganj',
+    'Sunamganj',
+    'Sylhet',
+    'Tangail',
+    'Thakurgaon',
+];
+
+const DONOR_OPTIONS = [
+    { value: 'yes', label: 'Yes, I can donate' },
+    { value: 'no', label: 'No, not right now' },
+];
+
 export default function UpdateProfileInformation({
     mustVerifyEmail,
     status,
@@ -16,16 +89,46 @@ export default function UpdateProfileInformation({
     const user = usePage().props.auth.user;
 
     const fileInputRef = useRef(null);
-    const [imagePreview, setImagePreview] = useState(
-        user.image ? (user.image.startsWith('http') ? user.image : `/storage/${user.image}`) : null
-    );
+    
+    // Helper function to get image URL
+    const getImageUrl = (imagePath, addCacheBust = false) => {
+        if (!imagePath) return null;
+        let url;
+        if (imagePath.startsWith('http')) {
+            url = imagePath;
+        } else if (imagePath.startsWith('/storage/')) {
+            url = imagePath;
+        } else {
+            url = `/storage/${imagePath}`;
+        }
+        // Add cache busting parameter only when explicitly requested (e.g., after upload)
+        if (addCacheBust) {
+            return url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        }
+        return url;
+    };
+
+    const [imagePreview, setImagePreview] = useState(getImageUrl(user.image, false));
 
     // Update preview when user image changes (after successful update)
     useEffect(() => {
-        if (user.image && !imagePreview) {
-            setImagePreview(user.image.startsWith('http') ? user.image : `/storage/${user.image}`);
+        // Only update if we don't have a file selected (to avoid resetting when user selects new file)
+        if (!(data.image instanceof File)) {
+            if (user.image) {
+                const imageUrl = getImageUrl(user.image, false); // No cache busting for initial load
+                // Remove cache busting from current preview for comparison
+                const currentPreviewBase = imagePreview?.split('?')[0]?.split('&')[0];
+                const newImageBase = imageUrl?.split('?')[0]?.split('&')[0];
+                // Only update if the base path changed
+                if (currentPreviewBase !== newImageBase) {
+                    setImagePreview(imageUrl);
+                }
+            } else if (imagePreview) {
+                // If user has no image but we have a preview, clear it
+                setImagePreview(null);
+            }
         }
-    }, [user.image]);
+    }, [user.image]); // Watch user.image for changes
 
     // Format birth_date for date input
     const formatDateForInput = (dateString) => {
@@ -51,11 +154,31 @@ export default function UpdateProfileInformation({
             occupation: user.occupation || '',
             hobbies: user.hobbies || '',
             blood_group: user.blood_group || '',
+            donor: user.donor || 'no', // Default to 'no' if not set (required field)
         });
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Validate file size (2MB max)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image size must be less than 2MB');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please select a valid image file (JPEG, PNG, GIF, or WEBP)');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+
             setData('image', file);
             // Create preview
             const reader = new FileReader();
@@ -68,7 +191,9 @@ export default function UpdateProfileInformation({
 
     const removeImage = () => {
         setData('image', undefined);
-        setImagePreview(null);
+        // Reset to user's current image if exists, otherwise null
+        const imageUrl = getImageUrl(user.image);
+        setImagePreview(imageUrl);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -87,64 +212,63 @@ export default function UpdateProfileInformation({
             return;
         }
 
-        // Check if there's an image file to upload - capture it BEFORE any setData calls
+        // Check if there's an image file to upload
         const imageFile = data.image instanceof File ? data.image : null;
         const hasImageFile = !!imageFile;
         
-        // Debug log
-        console.log('Submitting form:', {
-            hasImage: hasImageFile,
-            imageType: imageFile ? typeof imageFile : 'none',
-            imageIsFile: imageFile instanceof File,
-            imageName: imageFile ? imageFile.name : 'none',
-            imageSize: imageFile ? imageFile.size : 0,
-        });
-
-        // Update form data with trimmed values
-        // Update all fields at once to ensure consistency
-        const updatedData = {
+        // Prepare all form data with trimmed values and ensure required fields are present
+        // Update form data state with all values first
+        const updatedFormData = {
             name: trimmedName,
             email: trimmedEmail,
-            phone: (data.phone || '').trim() || '',
-            address: (data.address || '').trim() || '',
-            about: (data.about || '').trim() || '',
-            city: (data.city || '').trim() || '',
-            state: (data.state || '').trim() || '',
-            zip: (data.zip || '').trim() || '',
-            birth_date: data.birth_date || '',
-            gender: data.gender || '',
-            occupation: (data.occupation || '').trim() || '',
-            hobbies: (data.hobbies || '').trim() || '',
-            blood_group: data.blood_group || '',
+            phone: (data.phone || '').trim() || null,
+            address: (data.address || '').trim() || null,
+            about: (data.about || '').trim() || null,
+            city: (data.city || '').trim() || null,
+            state: (data.state || '').trim() || null,
+            zip: (data.zip || '').trim() || null,
+            birth_date: data.birth_date || null,
+            gender: data.gender || null,
+            occupation: (data.occupation || '').trim() || null,
+            hobbies: (data.hobbies || '').trim() || null,
+            blood_group: data.blood_group || null,
+            donor: (data.donor && data.donor !== '') ? data.donor : 'no', // Ensure donor is always set (required field)
+            image: imageFile || undefined, // Keep image file if it exists
         };
 
-        // Update form data state (for UI updates)
-        setData(updatedData);
+        // Update form data state first
+        setData(updatedFormData);
 
-        // Prepare the data to send - include image file if it exists
-        const dataToSend = { ...updatedData };
-        if (hasImageFile) {
-            dataToSend.image = imageFile;
-        }
-
-        // Use router.patch directly to ensure image is included in the request
-        // This gives us full control over what gets sent
-        router.patch(route('profile.update'), dataToSend, {
-            forceFormData: hasImageFile, // Only use FormData when there's an image
+        // Use router.patch directly with the prepared data to ensure all fields are included
+        router.patch(route('profile.update'), updatedFormData, {
+            forceFormData: hasImageFile, // Use FormData when there's an image
             preserveScroll: true,
-            onSuccess: () => {
-                // Update form data state to reflect successful submission
-                setData(updatedData);
+            onSuccess: (page) => {
                 // Reset image input after successful upload
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
-                // Reset image in form data
+                
+                // Reset image in form data first (keep other fields)
                 setData('image', undefined);
+                
+                // Get updated user from the page props (refreshed by HandleInertiaRequests)
+                const updatedUser = page.props.auth?.user;
+                
+                // Update preview with the new image from the server response
+                // Add cache busting to force browser to reload the new image
+                if (updatedUser?.image) {
+                    const newImageUrl = getImageUrl(updatedUser.image, true); // Add cache busting
+                    setImagePreview(newImageUrl);
+                    console.log('Image updated successfully:', newImageUrl);
+                } else {
+                    // If no image, show placeholder
+                    setImagePreview(null);
+                }
             },
             onError: (errors) => {
                 console.error('Profile update errors:', errors);
-                console.error('Has image file:', hasImageFile);
+                console.error('Form data being sent:', updatedFormData);
                 if (imageFile) {
                     console.error('Image file details:', {
                         name: imageFile.name,
@@ -161,13 +285,13 @@ export default function UpdateProfileInformation({
             {/* Modern Header */}
             <header className="mb-8">
                 <div className="flex items-center gap-4 mb-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 shadow-md">
-                        <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-100 via-teal-100 to-blue-100 shadow-md">
+                        <svg className="h-6 w-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-blue-600 bg-clip-text text-transparent">
                             Profile Information
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
@@ -181,8 +305,8 @@ export default function UpdateProfileInformation({
                 {/* Basic Information Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100">
-                            <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-100 via-teal-100 to-blue-100">
+                            <svg className="h-5 w-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                         </div>
@@ -260,29 +384,44 @@ export default function UpdateProfileInformation({
 
                         {/* Profile Image Upload */}
                         <div className="space-y-2 md:col-span-2">
-                            <InputLabel htmlFor="image" value="Profile Image" />
+                            <InputLabel htmlFor="image" value="Profile Avatar (Single Upload)" />
                             <div className="flex items-start gap-6">
                                 {/* Image Preview */}
-                                {imagePreview && (
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 shadow-md">
+                                <div className="relative group">
+                                    <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 shadow-md bg-gray-100 flex items-center justify-center">
+                                        {imagePreview ? (
                                             <img
+                                                key={imagePreview} // Force re-render when image changes
                                                 src={imagePreview}
-                                                alt="Profile preview"
+                                                alt="Profile avatar"
                                                 className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    // Fallback if image fails to load
+                                                    const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0ea5e9&color=fff&size=128`;
+                                                    if (e.target.src !== fallbackUrl) {
+                                                        e.target.src = fallbackUrl;
+                                                    }
+                                                }}
                                             />
-                                        </div>
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500 to-teal-600 text-white text-3xl font-bold">
+                                                {user.name.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {data.image instanceof File && (
                                         <button
                                             type="button"
                                             onClick={removeImage}
-                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors cursor-pointer z-10"
+                                            title="Remove new image"
                                         >
                                             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                             </svg>
                                         </button>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
 
                                 {/* Upload Area */}
                                 <div className="flex-1">
@@ -294,28 +433,27 @@ export default function UpdateProfileInformation({
                                             accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
                                             onChange={handleImageChange}
                                             className="hidden"
+                                            // Ensure only single file upload
                                         />
                                         <label
                                             htmlFor="image"
-                                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 hover:border-indigo-400 cursor-pointer transition-all duration-200 group"
+                                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 hover:border-cyan-400 cursor-pointer transition-all duration-200 group"
                                         >
                                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                <svg className="w-10 h-10 mb-3 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-10 h-10 mb-3 text-gray-400 group-hover:text-cyan-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                                 </svg>
                                                 <p className="mb-2 text-sm text-gray-500">
-                                                    <span className="font-semibold text-indigo-600 group-hover:text-indigo-700">Click to upload</span> or drag and drop
+                                                    <span className="font-semibold text-cyan-600 group-hover:text-cyan-700">Click to upload</span> or drag and drop
                                                 </p>
                                                 <p className="text-xs text-gray-500">PNG, JPG, GIF or WEBP (MAX. 2MB)</p>
                                             </div>
                                         </label>
                                     </div>
                                     <InputError className="mt-2" message={errors.image} />
-                                    {!imagePreview && user.image && (
-                                        <p className="mt-2 text-xs text-gray-500">
-                                            Current image: {user.image.startsWith('http') ? user.image : `/storage/${user.image}`}
-                                        </p>
-                                    )}
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Upload a single profile picture. Maximum file size: 2MB
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -325,8 +463,8 @@ export default function UpdateProfileInformation({
                 {/* Personal Information Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-100 to-pink-100">
-                            <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-cyan-100">
+                            <svg className="h-5 w-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                         </div>
@@ -406,6 +544,33 @@ export default function UpdateProfileInformation({
                             </div>
                             <InputError className="mt-1" message={errors.blood_group} />
                         </div>
+
+                        {/* Donor Field */}
+                        <div className="space-y-2">
+                            <InputLabel htmlFor="donor" value="Blood Donor" />
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.313 0-2.5.402-3.5 1.086A4.002 4.002 0 005 13a4 4 0 006.2 3.356L12 16l.8.356A4 4 0 0019 13a4.002 4.002 0 00-3.5-3.914A5.977 5.977 0 0012 8z" />
+                                    </svg>
+                                </div>
+                                <Select
+                                    id="donor"
+                                    className="pl-12"
+                                    value={data.donor}
+                                    onChange={(e) => setData('donor', e.target.value)}
+                                    required
+                                >
+                                    <option value="">Select donor preference</option>
+                                    {DONOR_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+                            <InputError className="mt-1" message={errors.donor} />
+                        </div>
                     </div>
 
                     {/* About Field */}
@@ -459,12 +624,19 @@ export default function UpdateProfileInformation({
                         {/* City Field */}
                         <div className="space-y-2">
                             <InputLabel htmlFor="city" value="City" />
-                            <TextInput
+                            <Select
                                 id="city"
                                 value={data.city}
                                 onChange={(e) => setData('city', e.target.value)}
-                                placeholder="Enter your city"
-                            />
+                                required
+                            >
+                                <option value="">Select your city</option>
+                                {CITY_OPTIONS.map((city) => (
+                                    <option key={city} value={city}>
+                                        {city}
+                                    </option>
+                                ))}
+                            </Select>
                             <InputError className="mt-1" message={errors.city} />
                         </div>
 

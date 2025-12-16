@@ -1,10 +1,10 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import axios from '@/bootstrap';
 
-export default function Dashboard({ stats: initialStats = {} }) {
+export default function Dashboard({ stats: initialStats = {}, notifications: initialNotifications = [], unread_notification_count: initialUnreadCount = 0 }) {
     const user = usePage().props.auth.user;
     const [currentTime, setCurrentTime] = useState(new Date());
     const [stats, setStats] = useState(initialStats);
@@ -59,6 +59,7 @@ export default function Dashboard({ stats: initialStats = {} }) {
         };
     }, []);
 
+
     const getInitials = (name) => {
         return name
             .split(' ')
@@ -103,9 +104,9 @@ export default function Dashboard({ stats: initialStats = {} }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
             ),
-            gradient: 'from-blue-500 to-cyan-500',
-            bgGradient: 'from-blue-50 to-cyan-50',
-            textColor: 'text-blue-600',
+            gradient: 'from-cyan-500 to-blue-500',
+            bgGradient: 'from-cyan-50 to-blue-50',
+            textColor: 'text-cyan-700',
         },
         {
             title: 'Total Messages',
@@ -115,9 +116,21 @@ export default function Dashboard({ stats: initialStats = {} }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
             ),
-            gradient: 'from-purple-500 to-pink-500',
-            bgGradient: 'from-purple-50 to-pink-50',
-            textColor: 'text-purple-600',
+            gradient: 'from-sky-500 to-cyan-500',
+            bgGradient: 'from-sky-50 to-cyan-50',
+            textColor: 'text-sky-700',
+        },
+        {
+            title: 'Blood Donation',
+            value: stats.blood_donations || 0,
+            icon: (
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+            ),
+            gradient: 'from-cyan-500 to-teal-500',
+            bgGradient: 'from-cyan-50 to-teal-50',
+            textColor: 'text-cyan-700',
         },
         {
             title: 'Conversations',
@@ -127,9 +140,9 @@ export default function Dashboard({ stats: initialStats = {} }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
             ),
-            gradient: 'from-indigo-500 to-purple-500',
-            bgGradient: 'from-indigo-50 to-purple-50',
-            textColor: 'text-indigo-600',
+            gradient: 'from-blue-500 to-sky-500',
+            bgGradient: 'from-blue-50 to-sky-50',
+            textColor: 'text-blue-700',
         },
         {
             title: 'Unread Messages',
@@ -156,7 +169,18 @@ export default function Dashboard({ stats: initialStats = {} }) {
                 </svg>
             ),
             href: route('chat.index'),
-            gradient: 'from-indigo-600 to-purple-600',
+            gradient: 'from-cyan-600 via-teal-500 to-blue-600',
+        },
+        {
+            title: 'My Friends',
+            description: 'Manage your friends and friend requests',
+            icon: (
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            ),
+            href: route('friends.index'),
+            gradient: 'from-teal-500 to-emerald-500',
         },
         {
             title: 'Browse Users',
@@ -167,7 +191,7 @@ export default function Dashboard({ stats: initialStats = {} }) {
                 </svg>
             ),
             href: route('users'),
-            gradient: 'from-blue-600 to-cyan-600',
+            gradient: 'from-sky-600 to-cyan-500',
         },
         {
             title: 'Profile Settings',
@@ -178,14 +202,14 @@ export default function Dashboard({ stats: initialStats = {} }) {
                 </svg>
             ),
             href: route('profile.edit'),
-            gradient: 'from-purple-600 to-pink-600',
+            gradient: 'from-cyan-500 to-teal-500',
         },
     ];
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 shadow-xl">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-600 via-teal-500 to-blue-600 p-6 shadow-xl">
                     {/* Background decoration */}
                     <div className="absolute inset-0 opacity-10">
                         <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white blur-3xl"></div>
@@ -200,10 +224,10 @@ export default function Dashboard({ stats: initialStats = {} }) {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-medium text-indigo-100">{getGreeting()},</span>
+                                    <span className="text-sm font-medium text-cyan-100">{getGreeting()},</span>
                                     <h2 className="text-2xl md:text-3xl font-bold text-white">{user.name}</h2>
                                 </div>
-                                <p className="text-sm text-indigo-100/80 flex items-center gap-2">
+                                <p className="text-sm text-cyan-100/80 flex items-center gap-2">
                                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
@@ -249,31 +273,54 @@ export default function Dashboard({ stats: initialStats = {} }) {
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     {/* Stats Grid */}
                     <div className="grid gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
-                        {statCards.map((stat, index) => (
-                            <div
-                                key={`${stat.title}-${stat.value}`}
-                                className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-200 transition-all duration-300 hover:shadow-2xl hover:scale-105"
-                            >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-600 mb-2">{stat.title}</p>
-                                        <p className="text-3xl font-bold text-gray-900 transition-all duration-300">{stat.value.toLocaleString()}</p>
+                        {statCards.map((stat, index) => {
+                            const isBloodDonation = stat.title === 'Blood Donation';
+                            
+                            const cardContent = (
+                                <>
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-600 mb-2">{stat.title}</p>
+                                            <p className="text-3xl font-bold text-gray-900 transition-all duration-300">{stat.value.toLocaleString()}</p>
+                                        </div>
+                                        <div className={`rounded-xl bg-gradient-to-br ${stat.bgGradient} p-3 ${stat.textColor} shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                                            {stat.icon}
+                                        </div>
                                     </div>
-                                    <div className={`rounded-xl bg-gradient-to-br ${stat.bgGradient} p-3 ${stat.textColor} shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                                        {stat.icon}
-                                    </div>
+                                    {stat.badge && stat.value > 0 && (
+                                        <div className="absolute top-4 right-4">
+                                            <span className="flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                            </span>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                            
+                            if (isBloodDonation) {
+                                return (
+                                    <Link
+                                        key={`${stat.title}-${stat.value}`}
+                                        href={route('blood-donation.index')}
+                                        className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-200 transition-all duration-300 hover:shadow-2xl hover:scale-105 cursor-pointer"
+                                    >
+                                        {cardContent}
+                                    </Link>
+                                );
+                            }
+                            
+                            return (
+                                <div
+                                    key={`${stat.title}-${stat.value}`}
+                                    className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-200 transition-all duration-300 hover:shadow-2xl hover:scale-105"
+                                >
+                                    {cardContent}
                                 </div>
-                                {stat.badge && stat.value > 0 && (
-                                    <div className="absolute top-4 right-4">
-                                        <span className="flex h-3 w-3">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
+
 
                     {/* Quick Actions */}
                     <div className="mb-8">
@@ -303,77 +350,7 @@ export default function Dashboard({ stats: initialStats = {} }) {
                         </div>
                     </div>
 
-                    {/* Recent Activity / Info Cards */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Getting Started Card */}
-                        <div className="overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-200">
-                            <div className="p-6">
-                                <div className="flex items-center space-x-3 mb-4">
-                                    <div className="rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 p-3">
-                                        <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-900">Getting Started</h3>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="flex items-start space-x-3">
-                                        <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
-                                            <svg className="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">Account Setup Complete</p>
-                                            <p className="text-sm text-gray-500">Your account is ready to use</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start space-x-3">
-                                        <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100">
-                                            <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">Start Messaging</p>
-                                            <p className="text-sm text-gray-500">Connect with other users and start conversations</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* System Info Card */}
-                        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-lg ring-1 ring-gray-200">
-                            <div className="p-6">
-                                <div className="flex items-center space-x-3 mb-4">
-                                    <div className="rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100 p-3">
-                                        <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-900">System Status</h3>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Platform</span>
-                                        <span className="text-sm font-semibold text-gray-900">One Chat</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Status</span>
-                                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                                            <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                            Online
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Real-time Messaging</span>
-                                        <span className="text-sm font-semibold text-emerald-600">Active</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {/* (Removed: Getting Started & System Status cards to keep dashboard clean) */}
                 </div>
             </div>
         </AuthenticatedLayout>

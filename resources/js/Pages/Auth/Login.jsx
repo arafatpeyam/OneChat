@@ -4,20 +4,77 @@ import InputLabel from '@/components/InputLabel';
 import PrimaryButton from '@/components/PrimaryButton';
 import TextInput from '@/components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
+import { useEffect } from 'react';
 
-export default function Login({ status, canResetPassword }) {
+export default function Login({ status, canResetPassword, csrf_token }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
         password: '',
         remember: false,
     });
 
+    // Refresh CSRF token when component mounts or when page becomes visible
+    useEffect(() => {
+        const refreshToken = () => {
+            // Update meta tag if csrf_token is provided
+            if (csrf_token) {
+                const metaTag = document.head.querySelector('meta[name="csrf-token"]');
+                if (metaTag) {
+                    metaTag.setAttribute('content', csrf_token);
+                }
+            }
+        };
+
+        refreshToken();
+
+        // Refresh token when page becomes visible (user comes back to tab)
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                refreshToken();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [csrf_token]);
+
     const submit = (e) => {
         e.preventDefault();
 
+        // Inertia.js automatically handles CSRF tokens from the meta tag
+        // Just ensure the meta tag is updated if we have a fresh token from props
+        if (csrf_token) {
+            const metaTag = document.head.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                metaTag.setAttribute('content', csrf_token);
+            }
+        }
+
         post(route('login'), {
             onFinish: () => reset('password'),
+            onError: (errors) => {
+                // Handle 419 CSRF token expired error
+                // Check various error formats that Inertia might return
+                const has419Error = 
+                    (errors?.message && (errors.message.includes('419') || errors.message.includes('CSRF') || errors.message.includes('expired'))) ||
+                    (typeof errors === 'string' && errors.includes('419')) ||
+                    (errors?.props?.errors?.message && errors.props.errors.message.includes('419'));
+                
+                if (has419Error) {
+                    // Reload page to get fresh CSRF token
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                }
+            },
+            onSuccess: () => {
+                // Clear any stored form data on success
+                reset();
+            },
         });
     };
 
@@ -60,7 +117,7 @@ export default function Login({ status, canResetPassword }) {
                         {canResetPassword && (
                             <Link
                                 href={route('password.request')}
-                                className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+                                className="text-sm font-medium text-cyan-600 hover:text-cyan-500 transition-colors"
                             >
                                 Forgot password?
                             </Link>
@@ -115,7 +172,7 @@ export default function Login({ status, canResetPassword }) {
                         Don't have an account?{' '}
                         <Link
                             href={route('register')}
-                            className="font-semibold text-indigo-600 hover:text-indigo-500 transition-colors"
+                            className="font-semibold text-cyan-600 hover:text-cyan-500 transition-colors"
                         >
                             Sign up
                         </Link>
